@@ -1,0 +1,69 @@
+from cryptography.fernet import Fernet
+import json
+import os
+
+class PasswordManager:
+    def __init__(self, master_password, storage_file='passwords.json'):
+        self.master_password = master_password.encode()
+        self.storage_file = storage_file
+        self.key = self.generate_key()
+        self.passwords = self.load_passwords()
+
+    def generate_key(self):
+        if not os.path.exists('key.key'):
+            key = Fernet.generate_key()
+            with open('key.key', 'wb') as key_file:
+                key_file.write(key)
+        else:
+            with open('key.key', 'rb') as key_file:
+                key = key_file.read()
+        return key
+
+    def encrypt_data(self, data):
+        cipher_suite = Fernet(self.key)
+        encrypted_data = cipher_suite.encrypt(data.encode())
+        return encrypted_data
+
+    def decrypt_data(self, encrypted_data):
+        cipher_suite = Fernet(self.key)
+        decrypted_data = cipher_suite.decrypt(encrypted_data).decode()
+        return decrypted_data
+
+    def load_passwords(self):
+        if os.path.exists(self.storage_file):
+            with open(self.storage_file, 'rb') as file:
+                encrypted_data = file.read()
+                if encrypted_data:
+                    decrypted_data = self.decrypt_data(encrypted_data)
+                    return json.loads(decrypted_data)
+        return {}
+
+    def save_passwords(self):
+        encrypted_data = self.encrypt_data(json.dumps(self.passwords))
+        with open(self.storage_file, 'wb') as file:
+            file.write(encrypted_data)
+
+    def add_password(self, website, username, password):
+        if website not in self.passwords:
+            self.passwords[website] = {'username': username, 'password': password}
+            self.save_passwords()
+            print(f'Password for {website} added successfully.')
+        else:
+            print(f'Password for {website} already exists. Consider updating it.')
+
+    def get_password(self, website):
+        if website in self.passwords:
+            return self.passwords[website]['password']
+        else:
+            print(f'Password for {website} not found.')
+
+# Example usage:
+master_password = input('Enter your master password: ')
+password_manager = PasswordManager(master_password)
+
+# Adding a password
+password_manager.add_password('example.com', 'user123', 'pass123')
+
+# Retrieving a password
+password = password_manager.get_password('example.com')
+print(f'Password: {password}')
